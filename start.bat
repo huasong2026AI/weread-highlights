@@ -25,12 +25,14 @@ echo   微信读书 · 热门划线摘录 - 启动
 echo ============================================
 echo.
 
-echo 清理残留进程（防止僵尸进程占着端口）...
-taskkill /F /IM pythonw.exe >nul 2>nul
-taskkill /F /IM python.exe >nul 2>nul
+echo 检查端口 8000 占用情况...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8000" ^| findstr "LISTENING"') do (
+    echo 正在释放被占用的端口 8000 (PID: %%a)...
+    taskkill /F /PID %%a >nul 2>nul
+)
 timeout /t 1 /nobreak >nul
 
-echo 正在后台启动服务（无窗口，关掉本窗口不影响服务）...
+echo 正在启动服务...
 start "" %PY% server.py
 
 REM 等 2 秒后检测端口是否真的监听成功

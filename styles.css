@@ -49,8 +49,7 @@ button {
 }
 button:hover { filter: brightness(1.05); }
 button:disabled { opacity: .45; cursor: not-allowed; }
-#exportBtn, #importBtn { background: #fff; color: var(--accent); }
-#settingsBtn { background: #fff; color: var(--accent); }
+#exportBtn, #importBtn, #exportAllBtn { background: #fff; color: var(--accent); }
 
 /* 获取栏 */
 .fetchbar {
@@ -72,42 +71,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 }
 #bookIdInput:focus { border-color: var(--accent); }
 .fetch-status { font-size: 13px; color: var(--muted); }
+.fetchbar-hint { padding: 6px 20px; font-size: 12px; color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--line); }
+.fetchbar-hint code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, Menlo, Consolas, monospace; }
 
-/* 设置面板 */
-.settings {
-  margin: 0 20px;
-  padding: 14px 16px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 0 0 12px 12px;
-  box-shadow: var(--shadow);
-}
-.settings.hidden { display: none; }
-.settings-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-.settings-head .muted { font-size: 12px; }
-.link-btn { border: none; background: none; color: var(--accent); padding: 0 4px; font-weight: 600; }
-#cookieInput {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace;
-  resize: vertical;
-  outline: none;
-}
-#cookieInput:focus { border-color: var(--accent); }
-.settings-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-.autologin-row { margin-top: 12px; }
-.autologin-row .primary-btn { padding: 10px 18px; font-size: 14px; }
-.autologin-tip { color: var(--muted); line-height: 1.6; }
-.settings-sep { margin: 14px 0 8px; text-align: center; font-size: 12px; color: var(--muted); }
-.settings-sep::before, .settings-sep::after { content: '——'; color: var(--line); }
-.settings-help { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.7; }
-.settings-help ol { margin: 6px 0; padding-left: 18px; }
-.settings-help code {
-  background: #eef2f7; padding: 1px 5px; border-radius: 4px;
-  font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all;
-}
 .muted { color: var(--muted); }
 
 .layout { flex: 1; display: flex; min-height: 0; }
@@ -198,6 +164,15 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: var(--shadow);
+  transition: all .2s ease;
+  position: relative;
+}
+
+.hl-card.speaking {
+  border-color: var(--accent);
+  background: #f0f6ff;
+  box-shadow: 0 4px 12px rgba(47, 107, 255, .15);
+  transform: scale(1.01);
 }
 
 .hl-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
@@ -209,6 +184,17 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 13px; flex: none;
+}
+
+.hl-card.speaking .hl-rank {
+  background: #10b981;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
 .hl-chapter { font-size: 12px; color: var(--muted); }
@@ -223,17 +209,18 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   white-space: nowrap;
 }
 
-.hl-del {
+.hl-play-single, .hl-del {
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
-  padding: 2px 4px;
+  font-size: 13px;
+  padding: 2px 6px;
   border-radius: 6px;
   cursor: pointer;
-  opacity: .6;
+  opacity: .7;
   transition: all .15s;
 }
+.hl-play-single:hover { opacity: 1; background: var(--accent-soft); color: var(--accent); }
 .hl-del:hover { opacity: 1; background: #fee; color: #e33; }
 
 .book-header .sub-author { color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -249,4 +236,120 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   border-radius: 999px;
   margin-left: 6px;
   font-weight: 600;
+}
+
+/* 底部播放控制条 */
+.player-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, .05);
+  z-index: 10;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.player-book {
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+
+.player-detail {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.player-btn:hover {
+  background: var(--bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.player-btn.icon-btn {
+  padding: 6px 10px;
+  font-size: 15px;
+}
+
+.player-btn.main-play-btn {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  padding: 8px 18px;
+  font-size: 14px;
+  min-width: 90px;
+}
+
+.player-btn.main-play-btn.playing {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.player-btn.main-play-btn:hover {
+  filter: brightness(1.08);
+}
+
+.player-settings {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.player-setting-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-setting-item select {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+}
+
+.player-setting-item select:focus {
+  border-color: var(--accent);
 }

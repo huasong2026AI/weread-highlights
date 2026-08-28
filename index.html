@@ -10,14 +10,14 @@
   <header class="topbar">
     <div class="brand">📚 微信读书 · 热门划线摘录</div>
     <div class="actions">
-      <button id="importBtn">导入文件</button>
-      <button id="exportAllBtn">导出全部</button>
-      <button id="exportBtn" disabled>导出当前书</button>
-      <input type="file" id="fileInput" accept=".json,.txt,.md,application/json" multiple hidden />
+      <button id="importBtn">导入 JSON</button>
+      <button id="exportBtn" disabled>导出当前书 (JSON)</button>
+      <button id="exportAllBtn">导出全部 (JSON)</button>
+      <input type="file" id="fileInput" accept=".json,application/json" multiple hidden />
     </div>
   </header>
 
-  <!-- 获取栏：填 infoId 自动拉取热门划线（无需登录） -->
+  <!-- 获取栏：填 infoId/bookId 自动拉取热门划线（无需登录） -->
   <div class="fetchbar">
     <input id="bookIdInput" type="text" placeholder="粘贴 bookId / infoId，如 b35326a0813abab07g0115b3" />
     <button id="fetchBtn">获取热门划线</button>
@@ -29,10 +29,13 @@
 
   <main class="layout">
     <aside class="sidebar">
-      <div class="sidebar-title">书籍列表 <span id="bookCount" class="badge">0</span></div>
+      <div class="sidebar-title">
+        <span>书籍列表</span>
+        <span id="bookCount" class="badge">0</span>
+      </div>
       <ul id="bookList" class="book-list"></ul>
       <div id="emptyHint" class="empty-hint">
-        还没有书籍。<br />在上方输入 bookId 点「获取热门划线」即可自动拉取；<br />或点「导入 JSON」选择离线文件。
+        还没有书籍。<br />在上方输入 bookId 点「获取热门划线」即可自动拉取；<br />或点「导入 JSON」选择备份文件。
       </div>
     </aside>
 
@@ -42,6 +45,39 @@
       <div id="contentEmpty" class="content-empty">从左侧选择一本书，查看它的热门划线。</div>
     </section>
   </main>
+
+  <!-- 底部连续朗读播放器 -->
+  <footer id="playerBar" class="player-bar">
+    <div class="player-info">
+      <div class="player-book" id="playerBookTitle">准备播放</div>
+      <div class="player-detail" id="playerDetail">未开始朗读</div>
+    </div>
+    <div class="player-controls">
+      <button id="prevBtn" class="player-btn icon-btn" title="上一条">⏮</button>
+      <button id="playBtn" class="player-btn main-play-btn" title="播放 / 暂停">▶ 播放</button>
+      <button id="nextBtn" class="player-btn icon-btn" title="下一条">⏭</button>
+      <button id="stopBtn" class="player-btn icon-btn" title="停止">⏹</button>
+    </div>
+    <div class="player-settings">
+      <label class="player-setting-item">
+        <span>语速:</span>
+        <select id="rateSelect">
+          <option value="0.8">0.8x</option>
+          <option value="1.0" selected>1.0x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2.0">2.0x</option>
+        </select>
+      </label>
+      <label class="player-setting-item">
+        <span>模式:</span>
+        <select id="playModeSelect">
+          <option value="all" selected>🔁 连读所有书</option>
+          <option value="single">📖 仅读当前书</option>
+        </select>
+      </label>
+    </div>
+  </footer>
 
   <script src="app.js"></script>
 </body>
