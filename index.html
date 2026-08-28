@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>微信读书 · 热门划线摘录</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">📚 微信读书 · 热门划线摘录</div>
+    <div class="actions">
+      <button id="importBtn">导入文件</button>
+      <button id="exportAllBtn">导出全部</button>
+      <button id="exportBtn" disabled>导出当前书</button>
+      <input type="file" id="fileInput" accept=".json,.txt,.md,application/json" multiple hidden />
+    </div>
+  </header>
+
+  <!-- 获取栏：填 infoId 自动拉取热门划线（无需登录） -->
+  <div class="fetchbar">
+    <input id="bookIdInput" type="text" placeholder="粘贴 bookId / infoId，如 b35326a0813abab07g0115b3" />
+    <button id="fetchBtn">获取热门划线</button>
+    <span id="fetchStatus" class="fetch-status"></span>
+  </div>
+  <div class="fetchbar-hint">
+    输入书详情页 URL 里 <code>bookDetail/</code> 后面那串（<code>b</code> 开头或纯数字均可）
+  </div>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-title">书籍列表 <span id="bookCount" class="badge">0</span></div>
+      <ul id="bookList" class="book-list"></ul>
+      <div id="emptyHint" class="empty-hint">
+        还没有书籍。<br />在上方输入 bookId 点「获取热门划线」即可自动拉取；<br />或点「导入 JSON」选择离线文件。
+      </div>
+    </aside>
+
+    <section class="content">
+      <div id="bookHeader" class="book-header hidden"></div>
+      <div id="highlightList" class="highlight-list"></div>
+      <div id="contentEmpty" class="content-empty">从左侧选择一本书，查看它的热门划线。</div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

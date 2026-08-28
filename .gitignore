@@ -1,0 +1,15 @@
+# 运行时文件
+server.log
+cookie.txt
+login_status.json
+login_debug.json
+fetch_result_*.json
+anonymous_response.json
+
+# Python
+__pycache__/
+*.pyc
+
+# 系统
+Thumbs.db
+.DS_Store

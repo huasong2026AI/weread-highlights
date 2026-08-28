@@ -1,0 +1,37 @@
+{
+  "__sample": true,
+  "title": "（示例）热门划线演示书",
+  "bookId": "b35326a0813abab07g0115b3",
+  "totalCount": 431,
+  "synckey": 12345,
+  "chapters": [
+    { "bookId": "b35326a0813abab07g0115b3", "chapterUid": 1, "chapterIdx": 1, "title": "第一章 命运" },
+    { "bookId": "b35326a0813abab07g0115b3", "chapterUid": 2, "chapterIdx": 2, "title": "第二章 本性" },
+    { "bookId": "b35326a0813abab07g0115b3", "chapterUid": 3, "chapterIdx": 3, "title": "第三章 家族" },
+    { "bookId": "b35326a0813abab07g0115b3", "chapterUid": 4, "chapterIdx": 4, "title": "第四章 修行" },
+    { "bookId": "b35326a0813abab07g0115b3", "chapterUid": 5, "chapterIdx": 5, "title": "第五章 生死" },
+    { "bookId": "b35326a0813abab07g0115b3", "chapterUid": 6, "chapterIdx": 6, "title": "第六章 慈悲" }
+  ],
+  "items": [
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s1", "chapterUid": 1, "range": "393-401", "markText": "跟随命运吧，不是不作为，而是去命运的洪流里努力，不必抱怨它没有带你走预期的路，请在任何的路上满心欢喜地行走吧，会发现命运早就为你准备了惊喜。", "totalCount": 420, "userVid": 1001 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s2", "chapterUid": 2, "range": "102-118", "markText": "每个人的本性都是清净无染，圆满具足的，无须向外求佛求神，只需去除迷障，让本性显现。不是向外寻求你没有的一切，而是向内发现你原本拥有一切。", "totalCount": 405, "userVid": 1002 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s3", "chapterUid": 3, "range": "220-245", "markText": "家族有亲人去世时，达尼女人需要切掉一根指头的两个关节，因此有的女人整只手都没有手指，男人却不需要这样做。", "totalCount": 377, "userVid": 1003 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s4", "chapterUid": 1, "range": "500-520", "markText": "示例划线 4：真正的从容，是看清生活的真相之后，依然愿意温柔地对待它。", "totalCount": 351, "userVid": 1004 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s5", "chapterUid": 4, "range": "610-630", "markText": "示例划线 5：修行不是逃离尘世，而是在柴米油盐里修一颗不乱的心。", "totalCount": 330, "userVid": 1005 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s6", "chapterUid": 2, "range": "700-718", "markText": "示例划线 6：你所羡慕的生活，背后都有你不曾看见的忍耐。", "totalCount": 312, "userVid": 1006 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s7", "chapterUid": 5, "range": "805-822", "markText": "示例划线 7：死亡不是终点，遗忘才是。只要还有人记得，故事就仍在继续。", "totalCount": 298, "userVid": 1007 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s8", "chapterUid": 3, "range": "900-915", "markText": "示例划线 8：家族的记忆像一条暗河，表面平静，却决定了每个人流向哪里。", "totalCount": 281, "userVid": 1008 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s9", "chapterUid": 6, "range": "1000-1018", "markText": "示例划线 9：慈悲不是软弱，是看穿了他人的苦，仍选择不转身离开。", "totalCount": 264, "userVid": 1009 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s10", "chapterUid": 1, "range": "1100-1118", "markText": "示例划线 10：所谓好运，不过是准备碰上了机会。", "totalCount": 250, "userVid": 1010 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s11", "chapterUid": 4, "range": "1205-1222", "markText": "示例划线 11：焦虑大多来自想同时拥有太多，又不愿为任何一样真正付出。", "totalCount": 238, "userVid": 1011 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s12", "chapterUid": 2, "range": "1300-1315", "markText": "示例划线 12：向内求，不是放弃世界，而是先安顿好自己再去面对世界。", "totalCount": 221, "userVid": 1012 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s13", "chapterUid": 5, "range": "1400-1418", "markText": "示例划线 13：我们终将独自面对自己的告别，这是生而为人最公平的修行。", "totalCount": 209, "userVid": 1013 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s14", "chapterUid": 6, "range": "1500-1516", "markText": "示例划线 14：善良若没有边界，就容易变成对他人的纵容、对自己的亏欠。", "totalCount": 195, "userVid": 1014 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s15", "chapterUid": 3, "range": "1600-1615", "markText": "示例划线 15：有些伤口不会愈合，只是学会带着它继续走。", "totalCount": 182, "userVid": 1015 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s16", "chapterUid": 1, "range": "1700-1718", "markText": "示例划线 16：你以为的偶然，其实都是长期积累后的必然。", "totalCount": 170, "userVid": 1016 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s17", "chapterUid": 4, "range": "1800-1818", "markText": "示例划线 17：把书读薄，是把知识变成自己的；把人看清，是把期待收回自己。", "totalCount": 158, "userVid": 1017 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s18", "chapterUid": 2, "range": "1900-1915", "markText": "示例划线 18：安静不是没有声音，是心里不再起波澜。", "totalCount": 145, "userVid": 1018 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s19", "chapterUid": 5, "range": "2000-2018", "markText": "示例划线 19：向死而生，不是悲观，是把每一天都当作礼物来拆。", "totalCount": 133, "userVid": 1019 },
+    { "bookId": "b35326a0813abab07g0115b3", "bookmarkId": "s20", "chapterUid": 6, "range": "2100-2116", "markText": "示例划线 20：真正的富有，是夜晚能安然入睡，清晨能欣然醒来。", "totalCount": 121, "userVid": 1020 }
+  ]
+}
