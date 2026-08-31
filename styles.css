@@ -377,3 +377,69 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   font-size: 13px;
 }
 
+/* === 移动端适配（窄屏） === */
+@media (max-width: 768px) {
+  body { flex-direction: column; }
+
+  .topbar {
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .topbar .brand { font-size: 14px; }
+  .topbar .actions { gap: 6px; flex-wrap: wrap; }
+  .topbar .actions button { padding: 5px 9px; font-size: 12px; }
+
+  .fetchbar {
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    gap: 6px;
+  }
+  .fetchbar input { flex: 1 1 100%; min-width: 0; }
+  .fetchbar button { flex: 1; }
+  .fetchbar-hint { display: none; }  /* 窄屏隐藏提示，节省空间 */
+
+  .syncbar {
+    flex-wrap: wrap;
+    margin: 0 12px 12px;
+    padding: 8px 10px;
+  }
+  .syncbar button { flex: 1; min-width: 0; }
+
+  .page-mode-hint { margin: 0 12px 12px; font-size: 12px; padding: 8px 10px; }
+
+  .layout { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    max-height: 38vh;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .book-list { padding: 6px; }
+  .book-item { padding: 8px 32px 8px 10px; margin-bottom: 4px; }
+  .book-name { font-size: 13px; margin-bottom: 2px; }
+  .book-meta { font-size: 11px; }
+  .book-del { font-size: 14px; padding: 4px 6px; }
+
+  .content { padding: 14px; }
+  .book-header h2 { font-size: 17px; }
+  .book-header .sub { font-size: 12px; }
+  .book-header .sub-author { font-size: 12px; }
+
+  .hl-card { padding: 12px; }
+  .hl-text { font-size: 14px; line-height: 1.7; }
+  .hl-top { gap: 6px; }
+  .hl-chapter { font-size: 11px; }
+  .hl-count { font-size: 11px; padding: 1px 6px; }
+  .hl-rank { width: 22px; height: 22px; font-size: 12px; }
+
+  .empty-hint, .content-empty { padding: 16px 12px; font-size: 12px; }
+}
+
+/* 超窄屏（手机竖屏 ≤ 480px）*/
+@media (max-width: 480px) {
+  .sidebar { max-height: 32vh; }
+  .topbar .actions button { padding: 4px 7px; font-size: 11px; }
+}
+
