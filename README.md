@@ -19,6 +19,34 @@
 
 > ⚠️ 说明：微信读书匿名接口最多返回 **10 条**热门划线（登录态最多 20 条；全书全部热门划线仅在 App 内）。
 
+## 🌐 公开网页 + 自动同步（GitHub Pages，可选）
+
+仓库带一套「共享书库」机制：把书发到 GitHub Pages 公开网页上，**你能增删、别人只读**。
+
+```
+你编辑 data/watchlist.txt（加一行 bookId）
+        │  提交
+        ▼
+GitHub Actions 自动抓取  ──►  data/books.json 更新
+        │
+        ▼
+GitHub Pages 网页自动显示（任何人可浏览，只读）
+```
+
+### 增删数据（只有你能做）
+- **加书**：编辑 `data/watchlist.txt` 加一行 bookId → 提交 → Actions 自动抓 → 网页出现这本书
+- **删划线/删书**：本地工具里操作 → 点「🔄 同步共享书库」→ 更新 `data/books.json` + `data/deleted.json` → 提交 → 网页所有人看不到
+  - 删除清单 `deleted.json` 保证 Actions 重抓时**删除不会复活**
+
+### 开启 Pages（只需一次）
+1. 仓库 `Settings` → `Pages` → Source 选 `Deploy from a branch`
+2. Branch 选 `main`，目录 `/ (root)` → Save
+3. 访问 `https://<用户名>.github.io/<仓库名>/`
+
+### 网页与本地差异
+- **本地（start.bat）**：可抓新书、可删除、可同步 —— 你的私人工作区
+- **网页（Pages）**：只读展示共享书库 —— 给所有人看
+
 ## 🚀 快速开始
 
 ### 环境要求
@@ -44,11 +72,19 @@ https://weread.qq.com/web/bookDetail/b35326a0813abab07g0115b3
 
 ```
 weread-highlights/
-├─ index.html        # 页面（获取栏 / 左侧书单 / 右侧划线）
+├─ index.html        # 页面（获取栏 / 左侧书单 / 右侧划线 / 同步栏）
 ├─ styles.css        # 样式
-├─ app.js            # 前端逻辑（抓取 / 渲染 / 删选 / 导入导出）
+├─ app.js            # 前端逻辑（抓取 / 渲染 / 删选 / 导入导出 / 共享书库 / 同步）
 ├─ server.py         # 本地代理：匿名请求微信读书公开接口（纯标准库）
 ├─ start.bat         # 一键启动（Windows）
+├─ data/
+│  ├─ watchlist.txt  # 想自动抓取的 bookId 清单（你维护）
+│  ├─ books.json     # 共享书库（Actions/同步自动生成）
+│  └─ deleted.json   # 删除清单（防止删除复活，自动生成）
+├─ scripts/
+│  └─ fetch_books.py # 批量抓取脚本（本地与 CI 共用）
+├─ .github/workflows/
+│  └─ fetch.yml      # 自动同步工作流（每天 + watchlist 变更触发）
 ├─ samples/          # 示例数据（可导入体验）
 ├─ LICENSE           # MIT
 └─ README.md

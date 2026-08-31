@@ -113,15 +113,28 @@ function renderSidebar() {
   });
 }
 
+// ---- 删除清单（用于「同步共享书库」）----
+const DELETED_KEY = 'weread_deleted_highlights';
+
+function loadDeletedMap() {
+  try { return JSON.parse(localStorage.getItem(DELETED_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveDeletedMap(m) { localStorage.setItem(DELETED_KEY, JSON.stringify(m)); }
+
 function deleteHighlight(bookId, key) {
   const b = books.find(x => x.bookId === bookId);
   if (!b) return;
-  if (!confirm('删除这条划线？')) return;
+  if (!confirm('删除这条划线？\n（点「同步共享书库」后，网页上的所有人也会看不到它）')) return;
   b.highlights = b.highlights.filter(h => h.key !== key);
   b.count = b.highlights.length;
+  // 记录到删除清单
+  const dm = loadDeletedMap();
+  (dm[bookId] = dm[bookId] || []).push(key);
+  saveDeletedMap(dm);
   saveBooks();
   renderSidebar();
   if (activeBookId === bookId) selectBook(bookId);
+  syncStatus.textContent = '⚠️ 有本地删除待同步，点「同步共享书库」发布';
 }
 
 function selectBook(bookId) {
@@ -423,9 +436,99 @@ nextBtn.onclick = () => { let bIdx = books.findIndex(x => x.bookId === (currentP
 prevBtn.onclick = () => { let bIdx = books.findIndex(x => x.bookId === (currentPlayingBookId || activeBookId)); if (bIdx >= 0) playHighlight(bIdx, Math.max(0, (currentPlayingHlIdx || 0) - 1)); };
 rateSelect.onchange = () => { if (isPlaying && !isPaused) { let bIdx = books.findIndex(x => x.bookId === currentPlayingBookId); if (bIdx >= 0) playHighlight(bIdx, currentPlayingHlIdx); } };
 
+// ---- 共享书库（data/books.json，由 GitHub Actions 自动更新）----
+async function loadSharedLibrary() {
+  try {
+    const r = await fetch('data/books.json', { cache: 'no-store' });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !Array.isArray(d.books)) return;
+    let added = 0;
+    d.books.forEach(b => {
+      if (!b || !b.bookId || !Array.isArray(b.highlights)) return;
+      // 共享书：本地若已有同一本则不覆盖（保留本地删选结果）
+      if (books.some(x => x.bookId === b.bookId)) return;
+      const parsed = parseBook({ book: b }, b.title || '共享书');
+      parsed.shared = true;
+      books.push(parsed);
+      added++;
+    });
+    if (added) {
+      saveBooks();
+      renderSidebar();
+    }
+  } catch (e) { /* 无共享数据时忽略 */ }
+}
+
+// ---- 检测是否本地工具模式（Pages 上无本地服务）----
+async function detectLocalMode() {
+  let local = false;
+  try {
+    const r = await fetch('/api/ping', { cache: 'no-store' });
+    const d = await r.json();
+    local = !!(d && d.ok);
+  } catch (e) { local = false; }
+  if (!local) {
+    // GitHub Pages 只读模式：隐藏抓取入口与同步按钮，显示说明
+    document.querySelectorAll('.fetchbar, .fetchbar-hint, #syncbar').forEach(el => { el.style.display = 'none'; });
+    const hint = document.getElementById('pageModeHint');
+    if (hint) {
+      hint.style.display = 'block';
+      hint.textContent = '🌐 这是公开只读版（GitHub Pages）。想自己抓取/删除并同步：把仓库克隆到本地，双击 start.bat 运行。';
+    }
+  }
+  return local;
+}
+
+// ---- 同步共享书库：把删减后的数据 + 删除清单写到仓库文件 ----
+const syncBtn = document.getElementById('syncBtn');
+const syncStatus = document.getElementById('syncStatus');
+syncBtn.onclick = async () => {
+  const dm = loadDeletedMap();
+  if (!books.length && !Object.keys(dm).length) {
+    syncStatus.textContent = '没有需要同步的内容';
+    return;
+  }
+  if (!confirm('将当前书库（含删除）同步到 data/books.json？\n推送后网页所有人可见。')) return;
+  syncStatus.textContent = '同步中…';
+  syncBtn.disabled = true;
+  try {
+    const payload = {
+      deleted: dm,
+      books: books.map(b => ({
+        bookId: b.bookId,
+        infoId: b.infoId || '',
+        title: b.title || '',
+        author: b.author || '',
+        highlights: (b.highlights || []).map(h => ({
+          text: h.text, count: h.count, chapter: h.chapter,
+          chapterUid: h.chapterUid, key: h.key
+        }))
+      }))
+    };
+    const r = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.ok) {
+      syncStatus.textContent = '✅ 已同步 ' + d.books + ' 本书。去 GitHub Desktop 点「Push origin」即可让网页更新。';
+    } else {
+      syncStatus.textContent = '❌ ' + (d.error || '同步失败');
+    }
+  } catch (e) {
+    syncStatus.textContent = '❌ 请求失败，请确认本地工具已启动 (start.bat)';
+  } finally {
+    syncBtn.disabled = false;
+  }
+};
+
 // 启动
 (async () => {
   renderSidebar();
+  await loadSharedLibrary();
+  await detectLocalMode();
   if (activeBookId) {
     selectBook(activeBookId);
   } else if (books.length) {

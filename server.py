@@ -148,7 +148,58 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        if self.path == '/api/sync':
+            # 从本地工具同步「删减后的书库 + 删除清单」到仓库数据文件
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                raw = self.rfile.read(length) if length else b'{}'
+                data = json.loads(raw or b'{}')
+                books = data.get('books') or []
+                deleted = data.get('deleted') or {}
+
+                # 1) 写 books.json（已是删减后的版本）
+                payload = {
+                    'version': 1,
+                    'updatedAt': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+                    'count': len(books),
+                    'books': books,
+                }
+                data_dir = os.path.join(ROOT, 'data')
+                os.makedirs(data_dir, exist_ok=True)
+                with open(os.path.join(data_dir, 'books.json'), 'w', encoding='utf-8') as f:
+                    json.dump(payload, f, ensure_ascii=False, indent=2)
+
+                # 2) 合并删除清单（防止 Actions 重跑把删除加回来）
+                del_file = os.path.join(data_dir, 'deleted.json')
+                old = {}
+                if os.path.exists(del_file):
+                    try:
+                        with open(del_file, encoding='utf-8') as f:
+                            old = json.load(f)
+                    except Exception:
+                        old = {}
+                for bid, keys in (deleted or {}).items():
+                    old.setdefault(bid, [])
+                    for k in keys:
+                        if k not in old[bid]:
+                            old[bid].append(k)
+                with open(del_file, 'w', encoding='utf-8') as f:
+                    json.dump(old, f, ensure_ascii=False, indent=2)
+
+                self._send_json({'ok': True, 'books': len(books),
+                                 'deletedKeys': sum(len(v) for v in old.values())})
+            except Exception as e:
+                self._send_json({'ok': False, 'error': str(e)}, 500)
+            return
+        self._send_json({'ok': False, 'error': 'not found'}, 404)
+
     def do_GET(self):
+        if self.path == '/api/ping':
+            # 前端用它判断「本地工具模式」是否可用（GitHub Pages 上没有本服务）
+            self._send_json({'ok': True, 'mode': 'local'})
+            return
+
         if self.path.startswith('/api/bookmeta'):
             qs = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(qs)

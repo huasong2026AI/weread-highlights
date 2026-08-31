@@ -353,3 +353,27 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .player-setting-item select:focus {
   border-color: var(--accent);
 }
+
+.page-mode-hint {
+  margin: 0 20px 14px;
+  padding: 10px 14px;
+  background: #eef6ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #3366aa;
+  line-height: 1.6;
+}
+
+.syncbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 20px 14px;
+  padding: 10px 14px;
+  background: #f4f8ff;
+  border: 1px dashed #b8cdf5;
+  border-radius: 10px;
+  font-size: 13px;
+}
+

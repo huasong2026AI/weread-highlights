@@ -1,0 +1,8 @@
+# 想自动抓取的书：每行一个 bookId（微信读书详情页 URL 中 bookDetail/ 后面那串）
+# # 开头为注释。保存后 GitHub Actions 会自动抓取并更新网页（也可本地运行 scripts/fetch_books.py）
+
+b35326a0813abab07g0115b3
+5cf32fc0813ab9c45g012f8c
+33d32770813abbf31g019ff3
+2cb32e40813ab9e2bg016497
+d9d324005c5b23d9db9dae5
