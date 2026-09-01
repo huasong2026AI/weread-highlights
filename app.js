@@ -397,7 +397,6 @@ function playHighlight(bookIndex, hlIndex) {
 
   if (activeBookId !== book.bookId) { selectBook(book.bookId); } else { updateActiveCardVisual(); }
   updatePlayerUI();
-  synth.cancel();
 
   const hl = book.highlights[hlIndex];
   // 拼接朗读文案：每本书第1条带上书名，后续直接朗读划线正文（不朗读章节名称）
@@ -405,17 +404,86 @@ function playHighlight(bookIndex, hlIndex) {
   if (hlIndex === 0) { speakText += `开始朗读：《${book.title}》` + (book.author ? `，作者：${book.author}` : '') + '。'; }
   speakText += hl.text;
 
-  const utter = new SpeechSynthesisUtterance(speakText);
+  // 关键：把长文本切成短句分块排队播放，规避 Chrome 长语音被静默掐断的 bug
+  const chunks = splitTextIntoChunks(speakText, 60);
+  currentChunks = chunks;
+  currentChunkIdx = 0;
+  currentBookIndex = bookIndex;
+  startWatchdog();
+  speakChunk(bookIndex, hlIndex, 0, chunks);
+}
+
+// 把文本按标点切分成短句，超长句子再硬切，每块不超过 maxLen 个字
+function splitTextIntoChunks(text, maxLen = 60) {
+  const sentences = text.split(/(?<=[。！？；!?;\n])/);
+  const chunks = [];
+  let buf = '';
+  const pushBuf = () => { if (buf.trim()) chunks.push(buf); buf = ''; };
+  for (const s of sentences) {
+    if (!s) continue;
+    if ((buf + s).length <= maxLen) { buf += s; continue; }
+    pushBuf();
+    if (s.length <= maxLen) { buf = s; continue; }
+    for (let i = 0; i < s.length; i += maxLen) {
+      const piece = s.slice(i, i + maxLen);
+      if (i + maxLen < s.length) chunks.push(piece); else buf = piece;
+    }
+  }
+  pushBuf();
+  return chunks.length ? chunks : [text];
+}
+
+let currentChunks = [];
+let currentChunkIdx = 0;
+let currentBookIndex = 0;
+let lastSpeakActivity = Date.now();
+
+// 朗读一个分块；读完自动接下一块，全部读完接下一条划线
+function speakChunk(bookIndex, hlIndex, chunkIdx, chunks) {
+  if (!isPlaying || isPaused) return;
+  if (chunkIdx >= chunks.length) { playHighlight(bookIndex, hlIndex + 1); return; }
+
+  const utter = new SpeechSynthesisUtterance(chunks[chunkIdx]);
   utter.rate = parseFloat(rateSelect.value) || 1.0;
+  utter.lang = 'zh-CN';
   utter.voice = getChineseVoice();
 
-  utter.onend = () => { if (isPlaying && !isPaused) playHighlight(bookIndex, hlIndex + 1); };
-  utter.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled' && isPlaying) playHighlight(bookIndex, hlIndex + 1); };
+  utter.onstart = () => { lastSpeakActivity = Date.now(); };
+  utter.onend = () => {
+    lastSpeakActivity = Date.now();
+    if (isPlaying && !isPaused) speakChunk(bookIndex, hlIndex, chunkIdx + 1, chunks);
+  };
+  utter.onerror = (e) => {
+    lastSpeakActivity = Date.now();
+    if (e.error !== 'interrupted' && e.error !== 'canceled' && isPlaying && !isPaused) speakChunk(bookIndex, hlIndex, chunkIdx + 1, chunks);
+  };
 
+  currentChunkIdx = chunkIdx;
   currentUtterance = utter;
-  synth.speak(utter);
+  // Chrome bug：cancel() 后同一帧 speak() 会被吞掉，延迟一小段时间再开口
+  if (chunkIdx === 0) {
+    synth.cancel();
+    setTimeout(() => { if (isPlaying && !isPaused) synth.speak(utter); }, 80);
+  } else {
+    synth.speak(utter);
+  }
+}
+
+// 看门狗：每2秒检查一次，若播放被浏览器静默杀掉（不在说也不在排队），3秒后自动从当前条目续播
+function startWatchdog() {
   clearInterval(keepAliveTimer);
-  keepAliveTimer = setInterval(() => { if (isPlaying && !isPaused && synth.speaking) { synth.pause(); synth.resume(); } }, 12000);
+  lastSpeakActivity = Date.now();
+  keepAliveTimer = setInterval(() => {
+    if (!isPlaying || isPaused) return;
+    if (!synth.speaking && !synth.pending && !synth.paused) {
+      if (Date.now() - lastSpeakActivity > 3000) {
+        lastSpeakActivity = Date.now();
+        playHighlight(currentBookIndex, currentPlayingHlIdx);
+      }
+    } else {
+      lastSpeakActivity = Date.now();
+    }
+  }, 2000);
 }
 
 function startPlay() {
