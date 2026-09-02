@@ -92,14 +92,26 @@ function deleteBook(bookId) {
   renderSidebar();
 }
 
-// 书籍列表按书名排序（书名相同再按作者），中文拼音序
+// 书籍列表排列：按书名或作者（中文拼音序），选择会记住
+const SORT_KEY = 'weread_sort_mode';
+const sortSelect = document.getElementById('sortSelect');
+sortSelect.value = localStorage.getItem(SORT_KEY) || 'title';
+
 function sortBooks() {
+  const byAuthor = sortSelect.value === 'author';
   books.sort((a, b) => {
-    const t = String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN');
-    if (t !== 0) return t;
-    return String(a.author || '').localeCompare(String(b.author || ''), 'zh-CN');
+    const cmp = byAuthor
+      ? String(a.author || '').localeCompare(String(b.author || ''), 'zh-CN')
+      : String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN');
+    if (cmp !== 0) return cmp;
+    return String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN');
   });
 }
+
+sortSelect.onchange = () => {
+  localStorage.setItem(SORT_KEY, sortSelect.value);
+  renderSidebar();
+};
 
 function renderSidebar() {
   sortBooks();
