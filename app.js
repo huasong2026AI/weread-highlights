@@ -534,12 +534,14 @@ async function detectLocalMode() {
     local = !!(d && d.ok);
   } catch (e) { local = false; }
   if (!local) {
-    // GitHub Pages 只读模式：隐藏抓取入口与同步按钮，显示说明
+    // GitHub Pages 只读模式：隐藏抓取入口与同步按钮，显示访客说明
     document.querySelectorAll('.fetchbar, .fetchbar-hint, #syncbar').forEach(el => { el.style.display = 'none'; });
     const hint = document.getElementById('pageModeHint');
     if (hint) {
       hint.style.display = 'block';
-      hint.textContent = '🌐 这是公开只读版（GitHub Pages）。想自己抓取/删除并同步：把仓库克隆到本地，双击 start.bat 运行。';
+      hint.innerHTML = '🌐 这是公开共享书库，大家看到的是同一份书单。<br>' +
+        '你删除划线、导入的书只保存在<b>你自己的浏览器</b>里，不影响其他人。<br>' +
+        '点「导出全部 (JSON)」可备份你的书单，换设备后用「导入 JSON」恢复。';
     }
   }
   return local;
