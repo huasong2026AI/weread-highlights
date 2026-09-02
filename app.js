@@ -532,10 +532,10 @@ async function loadSharedLibrary() {
   } catch (e) { /* 无共享数据时忽略 */ }
 }
 
-// ---- 访客模式（GitHub Pages）：通过自有 Cloudflare Worker 代理 + 公共 CORS 代理抓取微信读书接口 ----
+// ---- 访客模式（GitHub Pages）：通过自有 Cloudflare Pages Functions 代理 + 公共 CORS 代理抓取微信读书接口 ----
 let visitorMode = false;
-// 自有代理（Cloudflare Worker，仓库 worker.js）。部署后把域名填在这里：
-const REMOTE_API = 'https://weread-highlights.huasong2010.workers.dev/api/weread';
+// 自有代理（Cloudflare Pages Functions，仓库 functions/api/weread.js）。Pages 项目部署后域名形如 <项目名>.pages.dev：
+const REMOTE_API = 'https://weread-highlights.pages.dev/api/weread';
 // 公共代理仅作兜底（不稳定，可能失效）
 const CORS_PROXIES = [
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
