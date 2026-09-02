@@ -5,7 +5,6 @@ const STORE_KEY = 'weread_highlights_books';
 
 const fileInput = document.getElementById('fileInput');
 const importBtn = document.getElementById('importBtn');
-const exportBtn = document.getElementById('exportBtn');
 const bookIdInput = document.getElementById('bookIdInput');
 const fetchBtn = document.getElementById('fetchBtn');
 const fetchStatus = document.getElementById('fetchStatus');
@@ -89,12 +88,21 @@ function deleteBook(bookId) {
     contentEmpty.style.display = 'block';
     bookHeader.classList.add('hidden');
     highlightList.innerHTML = '';
-    exportBtn.disabled = true;
   }
   renderSidebar();
 }
 
+// 书籍列表按书名排序（书名相同再按作者），中文拼音序
+function sortBooks() {
+  books.sort((a, b) => {
+    const t = String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN');
+    if (t !== 0) return t;
+    return String(a.author || '').localeCompare(String(b.author || ''), 'zh-CN');
+  });
+}
+
 function renderSidebar() {
+  sortBooks();
   bookCountEl.textContent = books.length;
   emptyHint.style.display = books.length ? 'none' : 'block';
   bookListEl.innerHTML = '';
@@ -145,11 +153,9 @@ function selectBook(bookId) {
     contentEmpty.style.display = 'block';
     bookHeader.classList.add('hidden');
     highlightList.innerHTML = '';
-    exportBtn.disabled = true;
     return;
   }
   contentEmpty.style.display = 'none';
-  exportBtn.disabled = false;
   bookHeader.classList.remove('hidden');
   bookHeader.innerHTML = `<h2>${esc(b.title)}</h2>` +
     (b.author ? `<div class="sub-author">${esc(b.author)}</div>` : '');
@@ -266,27 +272,6 @@ function download(name, content, type = 'application/json;charset=utf-8') {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-
-// 导出当前选中的书为 JSON
-exportBtn.onclick = () => {
-  const b = books.find(x => x.bookId === activeBookId);
-  if (!b) return;
-  const payload = {
-    version: 1,
-    exportedAt: new Date().toLocaleString('zh-CN'),
-    app: '微信读书热门划线摘录',
-    book: {
-      bookId: b.bookId,
-      infoId: b.infoId || '',
-      title: b.title || '',
-      author: b.author || '',
-      count: b.highlights ? b.highlights.length : 0,
-      highlights: b.highlights || []
-    }
-  };
-  const fileName = (b.title ? b.title.replace(/[\\/:*?"<>|]/g, '_') : b.bookId) + '_热门划线.json';
-  download(fileName, JSON.stringify(payload, null, 2));
-};
 
 // 导出全部书籍为单个 JSON
 exportAllBtn.onclick = () => {
