@@ -57,7 +57,7 @@ function parseBook(raw, fileName) {
 
 // 静默刷新书籍元数据（书名/作者）：旧数据没有书名或存在异常编码时自动补全
 async function refreshBookMeta(b) {
-  if (!b.infoId) return;
+  if (!b.infoId || visitorMode) return; // 访客模式不打公共代理，避免大量请求
   try {
     const r = await fetch('/api/bookmeta?infoId=' + encodeURIComponent(b.infoId), { cache: 'no-store' });
     const d = await r.json();
@@ -211,14 +211,19 @@ function addBook(raw, fileName) {
 fetchBtn.onclick = async () => {
   const bookId = bookIdInput.value.trim();
   if (!bookId) { fetchStatus.textContent = '请输入 bookId'; return; }
-  fetchStatus.textContent = '获取中…';
+  fetchStatus.textContent = visitorMode ? '获取中（访客通道）…' : '获取中…';
   fetchBtn.disabled = true;
   try {
-    const r = await fetch('/api/bestbookmarks?bookId=' + encodeURIComponent(bookId), { cache: 'no-store' });
-    const d = await r.json();
-    if (!r.ok) {
-      fetchStatus.textContent = '❌ ' + (d.errmsg || '获取失败') + (d.errcode === -2010 ? '' : '');
-      return;
+    let d;
+    if (visitorMode) {
+      d = await visitorFetchBook(bookId);
+    } else {
+      const r = await fetch('/api/bestbookmarks?bookId=' + encodeURIComponent(bookId), { cache: 'no-store' });
+      d = await r.json();
+      if (!r.ok) {
+        fetchStatus.textContent = '❌ ' + (d.errmsg || '获取失败') + (d.errcode === -2010 ? '' : '');
+        return;
+      }
     }
     // 微信读书在登录态/参数错误时返回 {"errcode":-xxxx,"errmsg":"..."}（HTTP 200）
     if (d.errcode != null && d.errcode !== 0) {
@@ -232,7 +237,9 @@ fetchBtn.onclick = async () => {
     addBook(d, bookId + '.json');
     fetchStatus.textContent = '✅ 已获取 ' + d.items.length + ' 条' + (d.totalCount ? '（共 ' + d.totalCount + ' 条热门）' : '');
   } catch (e) {
-    fetchStatus.textContent = '❌ 请求失败，请确认本地工具已启动 (start.bat)';
+    fetchStatus.textContent = visitorMode
+      ? '❌ 获取失败，请稍后再试；或先用「导入 JSON」加书'
+      : '❌ 请求失败，请确认本地工具已启动 (start.bat)';
   } finally {
     fetchBtn.disabled = false;
   }
@@ -525,6 +532,90 @@ async function loadSharedLibrary() {
   } catch (e) { /* 无共享数据时忽略 */ }
 }
 
+// ---- 访客模式（GitHub Pages）：通过自有 Vercel 代理 + 公共 CORS 代理抓取微信读书接口 ----
+let visitorMode = false;
+// 自有代理（Vercel serverless，仓库 api/weread.js）。部署后把域名填在这里：
+const REMOTE_API = 'https://weread-highlights.vercel.app/api/weread';
+// 公共代理仅作兜底（不稳定，可能失效）
+const CORS_PROXIES = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+];
+async function proxyFetchText(url) {
+  let lastErr;
+  for (const wrap of CORS_PROXIES) {
+    try {
+      const r = await fetch(wrap(url), { cache: 'no-store' });
+      if (r.ok) {
+        const t = await r.text();
+        if (t) return t;
+      }
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('所有代理均失败');
+}
+function decodeJsonStr(s) { try { return JSON.parse('"' + s + '"'); } catch (e) { return s; } }
+
+// 复刻 server.py fetch_via_anonymous：优先走自有 Vercel 代理，失败退回公共 CORS 代理
+async function visitorFetchBook(infoId) {
+  infoId = String(infoId).trim();
+  // ① 自有代理：一步返回标准结构 {bookId,title,author,items,...}
+  try {
+    const r = await fetch(REMOTE_API + '?bookId=' + encodeURIComponent(infoId), { cache: 'no-store' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.errcode != null && d.errcode !== 0) throw new Error(d.errmsg || ('微信读书返回 ' + d.errcode));
+      if (d && d.items) return d;
+    }
+  } catch (e) { /* 自有代理不可用则继续走公共链 */ }
+
+  // ② 公共代理兜底：详情页提 bookId/书名/作者 → bestbookmarks 匿名接口
+  let bookId = /^\d+$/.test(infoId) ? infoId : null;
+  let title = '', author = '';
+  if (!bookId) {
+    const html = await proxyFetchText('https://weread.qq.com/web/book/detail/' + infoId);
+    const safe = infoId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let m = html.match(new RegExp('"reader"\\s*:\\s*\\{[^{}]*?"infoId"\\s*:\\s*"' + safe + '"[^{}]*?"bookId"\\s*:\\s*"(\\d+)"'));
+    if (!m) {
+      const all = html.match(/"bookId"\s*:\s*"(\d+)"/);
+      if (all) m = all;
+    }
+    if (m) bookId = m[1];
+    const tm = html.match(/"bookInfo"\s*:\s*\{[^{}]*?"title"\s*:\s*"(.*?)"/);
+    const am = html.match(/"bookInfo"\s*:\s*\{[^{}]*?"author"\s*:\s*"(.*?)"/);
+    if (tm) title = decodeJsonStr(tm[1]);
+    if (am) author = decodeJsonStr(am[1]);
+  }
+  if (!bookId) throw new Error('无法从详情页解析 bookId');
+  const body = await proxyFetchText('https://weread.qq.com/web/book/bestbookmarks?bookId=' + bookId + '&hasLogin=0');
+  const raw = JSON.parse(body);
+  if (raw.errcode != null && raw.errcode !== 0) {
+    const err = new Error(raw.errmsg || ('微信读书返回 ' + raw.errcode));
+    err.wereadErrcode = raw.errcode;
+    throw err;
+  }
+  const bb = raw.bestBookMarks || {};
+  const chapters = bb.chapters || [];
+  const chapMap = {};
+  chapters.forEach(c => { chapMap[c.chapterUid] = c.title || ''; });
+  const items = (bb.items || []).map(it => ({
+    bookId: it.bookId,
+    markText: it.markText || '',
+    totalCount: it.totalCount || 0,
+    chapterUid: it.chapterUid,
+    chapterTitle: chapMap[it.chapterUid] || '',
+    bookmarkId: it.bookmarkId,
+    users: it.users || []
+  }));
+  return {
+    bookId, infoId, title, author,
+    totalCount: bb.totalCount,
+    count: items.length,
+    items, chapters
+  };
+}
+
 // ---- 检测是否本地工具模式（Pages 上无本地服务）----
 async function detectLocalMode() {
   let local = false;
@@ -534,14 +625,20 @@ async function detectLocalMode() {
     local = !!(d && d.ok);
   } catch (e) { local = false; }
   if (!local) {
-    // GitHub Pages 只读模式：隐藏抓取入口与同步按钮，显示访客说明
-    document.querySelectorAll('.fetchbar, .fetchbar-hint, #syncbar').forEach(el => { el.style.display = 'none'; });
+    // GitHub Pages 访客模式：保留加书入口（走公共 CORS 代理），仅隐藏同步按钮
+    visitorMode = true;
+    document.querySelectorAll('#syncbar').forEach(el => { el.style.display = 'none'; });
     const hint = document.getElementById('pageModeHint');
     if (hint) {
       hint.style.display = 'block';
       hint.innerHTML = '🌐 这是公开共享书库，大家看到的是同一份书单。<br>' +
-        '你删除划线、导入的书只保存在<b>你自己的浏览器</b>里，不影响其他人。<br>' +
+        '你加的书、删除的划线只保存在<b>你自己的浏览器</b>里，不影响其他人。<br>' +
         '点「导出全部 (JSON)」可备份你的书单，换设备后用「导入 JSON」恢复。';
+    }
+    const fh = document.querySelector('.fetchbar-hint');
+    if (fh) {
+      fh.innerHTML = '粘贴书籍详情页 URL 里 <code>bookDetail/</code> 后面那串（<code>b</code> 开头或纯数字均可）。' +
+        '你加的书保存在<b>你自己的浏览器</b>，别人看不到；想分享给大家请找库主。';
     }
   }
   return local;
