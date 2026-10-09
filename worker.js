@@ -7,6 +7,8 @@
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36';
 const DETAIL_URL = 'https://weread.qq.com/web/bookDetail/';
 const BESTBOOK_URL = 'https://weread.qq.com/web/book/bestbookmarks';
+// 每本书取热度前 N 条热门划线。接口不传 count 时默认只给 10 条。
+const FETCH_COUNT = 30;
 
 function corsHeaders() {
   return {
@@ -113,8 +115,10 @@ export default {
       }
       if (!bookId) throw new Error('无法从详情页提取 bookId');
 
-      const body = await fetchText(BESTBOOK_URL + '?bookId=' + bookId + '&hasLogin=0', DETAIL_URL + infoId);
-      const raw = JSON.parse(body);
+      // 必须显式传 count，否则接口默认只返回 10 条
+      // （顺带记录：maxIdx 实测无效，无论传多少都返回从第一条开始的前 N 条）
+      const raw = JSON.parse(await fetchText(
+        BESTBOOK_URL + '?bookId=' + bookId + '&hasLogin=0&count=' + FETCH_COUNT, DETAIL_URL + infoId));
       if (raw.errcode != null && raw.errcode !== 0) {
         return json({ errcode: raw.errcode, errmsg: raw.errmsg || '微信读书接口错误' });
       }

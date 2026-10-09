@@ -25,6 +25,7 @@
   <div class="fetchbar-hint">
     输入书详情页 URL 里 <code>bookDetail/</code> 后面那串（<code>b</code> 开头或纯数字均可）
   </div>
+  <div id="libStatus" class="lib-status muted"></div>
   <div class="syncbar" id="syncbar">
     <button id="syncBtn">🔄 同步共享书库</button>
     <span id="syncStatus" class="muted"></span>
@@ -49,8 +50,11 @@
 
     <section class="content">
       <div id="bookHeader" class="book-header hidden"></div>
-      <div id="highlightList" class="highlight-list"></div>
-      <div id="contentEmpty" class="content-empty">从左侧选择一本书，查看它的热门划线。</div>
+      <div id="contentScroll" class="content-scroll">
+        <div id="highlightList" class="highlight-list"></div>
+        <div id="infoPanel" class="info-panel hidden"></div>
+      </div>
+      <div id="contentEmpty" class="content-empty">从左侧选择一本书，查看它的划线句子、简介与读后感。</div>
     </section>
   </main>
 
@@ -87,6 +91,7 @@
     </div>
   </footer>
 
-  <script src="app.js"></script>
+  <!-- v 用作缓存失效标记：改动 app.js 后同步改这里，避免浏览器继续用旧脚本 -->
+  <script src="app.js?v=20261008d"></script>
 </body>
 </html>

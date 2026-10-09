@@ -23,3 +23,11 @@ dc2325205e42cbdc250e5da
 9c232a50813abb743g0185fc
 6ae329f0813ab8415g0145d5
 b0332260813abb0d5g012314
+
+# 2026-10-08 补齐：这 5 本已在 data/books.json 里，但此前漏在 watchlist，
+# 若不补上，下次跑 scripts/fetch_books.py 会把它们从书库里冲掉
+c2d32b90813abb6a8g016c61
+29f320c05acd2c29f3608f1
+4b0327105dd6dc4b003bbc5
+8c5328305cd3e18c5c5dfbb
+24e32400813abbf82g011d29

@@ -2,6 +2,8 @@
 // 自动获取：前端填 infoId -> 本地 server.py 匿名请求 weread.qq.com 接口 -> 渲染热门划线（无需登录）
 
 const STORE_KEY = 'weread_highlights_books';
+// 每本书取热度前 N 条热门划线。接口不传 count 时默认只给 10 条。
+const FETCH_COUNT = 30;
 
 const fileInput = document.getElementById('fileInput');
 const importBtn = document.getElementById('importBtn');
@@ -13,7 +15,13 @@ const bookCountEl = document.getElementById('bookCount');
 const emptyHint = document.getElementById('emptyHint');
 const bookHeader = document.getElementById('bookHeader');
 const highlightList = document.getElementById('highlightList');
+const contentScroll = document.getElementById('contentScroll');
 const contentEmpty = document.getElementById('contentEmpty');
+const libStatusEl = document.getElementById('libStatus');
+const infoPanel = document.getElementById('infoPanel');
+
+// 内容区视图：'hl' = 划线句子，'info' = 简介 · 读后感（书名旁的按钮切换）
+let activeTab = 'hl';
 
 let books = loadBooks();
 let activeBookId = null;
@@ -51,6 +59,17 @@ function parseBook(raw, fileName) {
   return {
     bookId, infoId: src.infoId || raw.infoId || '',
     title, author: src.author || raw.author || '',
+    // 书籍扩展信息（简介 / 评分 / 最受推荐的读后感），从 data/books.json 或本地接口带入
+    intro: src.intro || raw.intro || '',
+    rating: (src.rating != null) ? src.rating : (raw.rating != null ? raw.rating : null),
+    ratingCount: src.ratingCount || raw.ratingCount || null,
+    category: src.category || raw.category || '',
+    publisher: src.publisher || raw.publisher || '',
+    publishTime: src.publishTime || raw.publishTime || '',
+    cover: src.cover || raw.cover || '',
+    deepLink: src.deepLink || raw.deepLink || '',
+    reviewCount: src.reviewCount || raw.reviewCount || null,
+    topReview: src.topReview || raw.topReview || null,
     count: highlights.length, highlights, sample: !!raw.__sample
   };
 }
@@ -88,6 +107,9 @@ function deleteBook(bookId) {
     contentEmpty.style.display = 'block';
     bookHeader.classList.add('hidden');
     highlightList.innerHTML = '';
+    if (infoPanel) infoPanel.innerHTML = '';
+    highlightList.classList.add('hidden');
+    if (infoPanel) infoPanel.classList.add('hidden');
   }
   renderSidebar();
 }
@@ -157,6 +179,108 @@ function deleteHighlight(bookId, key) {
   syncStatus.textContent = '⚠️ 有本地删除待同步，点「同步共享书库」发布';
 }
 
+// ---- 右栏：书籍简介 · 最受推荐的读后感 ----
+function starsOf(star) {
+  const n = Math.max(0, Math.min(5, Math.round((star || 0) / 20)));
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  if (isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+function renderBookInfo(b) {
+  if (!infoPanel) return;
+  const tags = [b.category, b.publisher, b.publishTime].filter(Boolean);
+  const tr = b.topReview;
+
+  infoPanel.innerHTML =
+    // 书籍基本信息
+    `<div class="info-card">
+      <div class="info-book">
+        ${b.cover ? `<img class="info-cover" src="${esc(b.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : ''}
+        <div class="info-bookmeta">
+          <div class="info-btitle">${esc(b.title || '')}</div>
+          ${b.author ? `<div class="info-author">${esc(b.author)}</div>` : ''}
+          ${b.rating ? `<div class="info-rating"><b>${esc(String(b.rating))}%</b>
+            <span class="review-meta">推荐值${b.ratingCount ? ' · ' + b.ratingCount + ' 人评分' : ''}</span></div>` : ''}
+          ${tags.length ? `<div class="info-tags">${tags.map(t => `<span class="info-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>
+      ${b.deepLink ? `<a class="info-link" href="${esc(b.deepLink)}" target="_blank" rel="noopener">在微信读书中打开</a>` : ''}
+    </div>` +
+    // 简介
+    `<div class="info-card">
+      <div class="info-sec-title">书籍简介</div>
+      ${b.intro
+        ? `<div class="info-intro clamped" id="introText">${esc(b.intro)}</div>
+           <div class="info-more" id="introMore">展开全文 ▾</div>`
+        : `<div class="info-empty">暂无简介数据。<br />本地运行 <code>scripts/refresh_books.py</code> 可补齐。</div>`}
+    </div>` +
+    // 最受推荐的读后感
+    `<div class="info-card">
+      <div class="info-sec-title">最受推荐的读后感${b.reviewCount ? `<span class="cnt">（共 ${b.reviewCount} 条点评）</span>` : ''}</div>
+      ${tr ? `
+        <div class="review-author">
+          <span class="review-name">${esc(tr.author || '匿名读者')}</span>
+          ${tr.isDeepV ? '<span class="review-badge">资深会员</span>' : ''}
+          <span class="info-stars">${starsOf(tr.star)}</span>
+          <span class="review-meta">${tr.isFinish ? '读完了' : '在读'}${tr.createTime ? ' · ' + fmtDate(tr.createTime) : ''}</span>
+        </div>
+        <div class="review-text">${esc(tr.content || '')}${tr.truncated ? '…' : ''}</div>
+        <div class="review-meta" style="margin-top:10px">取自微信读书默认「热门」排序的第一条（该接口不提供点赞数）。</div>`
+        : `<div class="info-empty">暂无公开点评数据。</div>`}
+    </div>`;
+
+  // 简介折叠 / 展开
+  const more = document.getElementById('introMore');
+  const intro = document.getElementById('introText');
+  if (more && intro) {
+    more.onclick = () => {
+      const clamped = intro.classList.toggle('clamped');
+      more.textContent = clamped ? '展开全文 ▾' : '收起 ▴';
+    };
+  }
+}
+
+// 按当前选中的视图，切换「划线句子 / 简介」两个面板的显示
+function applyTab() {
+  document.querySelectorAll('.bh-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === activeTab);
+  });
+  if (!activeBookId) return;
+  highlightList.classList.toggle('hidden', activeTab !== 'hl');
+  infoPanel.classList.toggle('hidden', activeTab !== 'info');
+  if (contentScroll) contentScroll.scrollTop = 0;
+}
+
+// 本地模式下，若某本书还缺简介/读后感（新加的书或旧数据），即时补一次
+const extraTried = new Set();
+async function ensureBookExtra(b) {
+  if (!b || visitorMode || !b.bookId || extraTried.has(b.bookId)) return;
+  if (b.intro && b.topReview) return;
+  extraTried.add(b.bookId);
+  try {
+    const r = await fetch('/api/bookextra?bookId=' + encodeURIComponent(b.bookId), { cache: 'no-store' });
+    const d = await r.json();
+    if (!d || !d.ok) return;
+    let changed = false;
+    ['intro', 'rating', 'ratingCount', 'category', 'publisher', 'publishTime', 'cover', 'deepLink', 'reviewCount', 'topReview']
+      .forEach(k => {
+        const v = d[k];
+        if (v !== undefined && v !== null && v !== '') { b[k] = v; changed = true; }
+      });
+    if (changed) {
+      saveBooks();
+      if (activeBookId === b.bookId) renderBookInfo(b);
+    }
+  } catch (e) { /* 无 Key 或离线时静默跳过 */ }
+}
+
 function selectBook(bookId) {
   activeBookId = bookId;
   const b = books.find(x => x.bookId === bookId);
@@ -165,12 +289,26 @@ function selectBook(bookId) {
     contentEmpty.style.display = 'block';
     bookHeader.classList.add('hidden');
     highlightList.innerHTML = '';
+    infoPanel.innerHTML = '';
+    highlightList.classList.add('hidden');
+    infoPanel.classList.add('hidden');
     return;
   }
   contentEmpty.style.display = 'none';
   bookHeader.classList.remove('hidden');
-  bookHeader.innerHTML = `<h2>${esc(b.title)}</h2>` +
+  const hlCount = (b.highlights || []).length;
+  bookHeader.innerHTML =
+    `<div class="bh-line">
+      <h2>${esc(b.title)}</h2>
+      <div class="bh-tabs" role="tablist">
+        <button class="bh-tab" data-tab="hl" role="tab" title="查看这本书的热门划线句子">划线句子<span class="bh-num">${hlCount}</span></button>
+        <button class="bh-tab" data-tab="info" role="tab" title="查看书籍简介与最受推荐的读后感">简介</button>
+      </div>
+    </div>` +
     (b.author ? `<div class="sub-author">${esc(b.author)}</div>` : '');
+  bookHeader.querySelectorAll('.bh-tab').forEach(btn => {
+    btn.onclick = () => { activeTab = btn.dataset.tab; applyTab(); };
+  });
   highlightList.innerHTML = '';
   b.highlights.forEach((h, i) => {
     const card = document.createElement('div');
@@ -196,6 +334,10 @@ function selectBook(bookId) {
     };
     highlightList.appendChild(card);
   });
+  // 简介 + 最受推荐的读后感（先渲染好，点按钮即可切换）
+  renderBookInfo(b);
+  ensureBookExtra(b);
+  applyTab();
 }
 
 function addBook(raw, fileName) {
@@ -207,7 +349,7 @@ function addBook(raw, fileName) {
   selectBook(b.bookId);
 }
 
-// ---- 自动获取：填 bookId 拉取前 20 条 ----
+// ---- 自动获取：填 bookId 拉取全部热门划线 ----
 fetchBtn.onclick = async () => {
   const bookId = bookIdInput.value.trim();
   if (!bookId) { fetchStatus.textContent = '请输入 bookId'; return; }
@@ -509,27 +651,86 @@ prevBtn.onclick = () => { let bIdx = books.findIndex(x => x.bookId === (currentP
 rateSelect.onchange = () => { if (isPlaying && !isPaused) { let bIdx = books.findIndex(x => x.bookId === currentPlayingBookId); if (bIdx >= 0) playHighlight(bIdx, currentPlayingHlIdx); } };
 
 // ---- 共享书库（data/books.json，由 GitHub Actions 自动更新）----
+function setLibStatus(t) { if (libStatusEl) libStatusEl.textContent = t; }
+
+// 书籍元信息字段（非划线）：只要共享数据里有值，就同步到本地。
+// 注意：这些字段的同步**不能**和划线条数绑定，否则划线条数没变化的书永远拿不到简介。
+const META_FIELDS = [
+  'infoId', 'intro', 'rating', 'ratingCount', 'category',
+  'publisher', 'publishTime', 'cover', 'deepLink', 'reviewCount', 'topReview'
+];
+
+function isBlank(v) {
+  return v === undefined || v === null || v === '' ||
+    (Array.isArray(v) && v.length === 0) ||
+    (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+}
+
 async function loadSharedLibrary() {
   try {
     const r = await fetch('data/books.json', { cache: 'no-store' });
-    if (!r.ok) return;
+    if (!r.ok) { setLibStatus('共享书库：读取失败（HTTP ' + r.status + '）'); return; }
     const d = await r.json();
-    if (!d || !Array.isArray(d.books)) return;
-    let added = 0;
+    if (!d || !Array.isArray(d.books)) { setLibStatus('共享书库：数据格式异常'); return; }
+    const dm = loadDeletedMap();
+    let changed = 0, metaFixed = 0, totalHl = 0;
     d.books.forEach(b => {
       if (!b || !b.bookId || !Array.isArray(b.highlights)) return;
-      // 共享书：本地若已有同一本则不覆盖（保留本地删选结果）
-      if (books.some(x => x.bookId === b.bookId)) return;
+      totalHl += b.highlights.length;
       const parsed = parseBook({ book: b }, b.title || '共享书');
       parsed.shared = true;
-      books.push(parsed);
-      added++;
+      const idx = books.findIndex(x => x.bookId === b.bookId);
+      if (idx < 0) {
+        books.push(parsed);
+        changed++;
+        return;
+      }
+      const local = books[idx];
+      let touched = false;
+      // ① 划线：仅当共享数据更全（条数更多）时替换，避免把本地删选结果盖回去。
+      //     这样本地数据一旦被更全的共享数据更新过，后续刷新就不会来回反复。
+      if (parsed.highlights.length > (local.highlights || []).length) {
+        // 覆盖前套用本地删除清单，避免已删的划线又被带回来
+        const del = new Set(dm[b.bookId] || []);
+        let hs = parsed.highlights;
+        if (del.size) hs = hs.filter(h => !del.has(h.key));
+        local.highlights = hs;
+        local.count = hs.length;
+        touched = true;
+      }
+      // ② 元信息（简介 / 评分 / 读后感 / 封面 / 跳转…）：与划线数量无关，缺就补、变就更新。
+      //    否则「划线条数本来就没变」的书会一直显示「暂无简介数据」。
+      META_FIELDS.forEach(k => {
+        const v = parsed[k];
+        if (isBlank(v)) return;
+        if (isBlank(local[k]) || JSON.stringify(local[k]) !== JSON.stringify(v)) {
+          local[k] = v;
+          touched = true;
+          if (k === 'intro' || k === 'topReview') metaFixed++;
+        }
+      });
+      if (touched) changed++;
     });
-    if (added) {
+    if (changed) {
       saveBooks();
       renderSidebar();
+      // 当前正在看的这本书，立即把新补上的简介/读后感刷到界面上
+      if (activeBookId) {
+        const cur = books.find(x => x.bookId === activeBookId);
+        if (cur) {
+          renderBookInfo(cur);
+          ensureBookExtra(cur);
+        }
+      }
     }
-  } catch (e) { /* 无共享数据时忽略 */ }
+    // 把「实际读到的数据版本」显示出来，便于确认页面有没有吃到新数据
+    setLibStatus('共享书库：' + d.books.length + ' 本 · ' + totalHl + ' 条' +
+      (d.updatedAt ? ' · 更新于 ' + d.updatedAt : '') +
+      (changed ? ' · 已刷新本地 ' + changed + ' 本' : '') +
+      (metaFixed ? ' · 补齐简介/读后感 ' + metaFixed + ' 项' : ''));
+  } catch (e) {
+    setLibStatus('共享书库：未加载（离线模式或本地服务未启动）');
+  }
 }
 
 // ---- 访客模式（GitHub Pages）：通过自有 Cloudflare Pages Functions 代理 + 公共 CORS 代理抓取微信读书接口 ----
@@ -588,7 +789,8 @@ async function visitorFetchBook(infoId) {
     if (am) author = decodeJsonStr(am[1]);
   }
   if (!bookId) throw new Error('无法从详情页解析 bookId');
-  const body = await proxyFetchText('https://weread.qq.com/web/book/bestbookmarks?bookId=' + bookId + '&hasLogin=0');
+  // 必须传 count，否则接口默认只返回 10 条（maxIdx 实测无效）
+  const body = await proxyFetchText('https://weread.qq.com/web/book/bestbookmarks?bookId=' + bookId + '&hasLogin=0&count=' + FETCH_COUNT);
   const raw = JSON.parse(body);
   if (raw.errcode != null && raw.errcode !== 0) {
     const err = new Error(raw.errmsg || ('微信读书返回 ' + raw.errcode));
@@ -664,6 +866,17 @@ syncBtn.onclick = async () => {
         infoId: b.infoId || '',
         title: b.title || '',
         author: b.author || '',
+        // 带上简介/读后感等扩展字段，避免从页面同步时把它们抹掉
+        intro: b.intro || '',
+        rating: b.rating != null ? b.rating : null,
+        ratingCount: b.ratingCount || null,
+        category: b.category || '',
+        publisher: b.publisher || '',
+        publishTime: b.publishTime || '',
+        cover: b.cover || '',
+        deepLink: b.deepLink || '',
+        reviewCount: b.reviewCount || null,
+        topReview: b.topReview || null,
         highlights: (b.highlights || []).map(h => ({
           text: h.text, count: h.count, chapter: h.chapter,
           chapterUid: h.chapterUid, key: h.key

@@ -18,6 +18,20 @@ BOOK_DETAIL_URL = 'https://weread.qq.com/web/bookDetail/'
 BESTBOOK_URL = 'https://weread.qq.com/web/book/bestbookmarks'
 LOG_FILE = os.path.join(ROOT, 'server.log')
 
+# 微信读书 Skill 网关：获取书籍简介、评分、读后感（需要环境变量 WEREAD_API_KEY）。
+# 注意：简介与点评都无法匿名获取（匿名会返回「用户不存在」），必须带 Key。
+GATEWAY_URL = 'https://i.weread.qq.com/api/agent/gateway'
+SKILL_VERSION = '1.0.4'
+# 存入 books.json 的读后感正文上限，避免个别超长书评把数据文件撑大
+REVIEW_MAX_CHARS = 2000
+# 简介/点评的内存缓存（同一本书反复点开时不必重复请求网关）
+EXTRA_CACHE = {}
+EXTRA_TTL = 6 * 3600
+
+# 每本书取热度前 N 条热门划线。接口不传 count 时默认只给 10 条，
+# 必须显式传 count 才能超过 10；这里按需求取前 30 条（接口返回已按热度排序）。
+FETCH_COUNT = 30
+
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36'
 
 
@@ -53,6 +67,77 @@ def decode_str(s):
 
     s = re.sub(r'\\u([0-9a-fA-F]{4})', unescape_u, s)
     return html.unescape(s).strip()
+
+
+def gateway_call(api_name, **params):
+    """调用微信读书 Skill 网关。需要环境变量 WEREAD_API_KEY（wrk- 开头）。
+
+    摘要与点评类接口都要求登录态，匿名访问会返回 -2010「用户不存在」。
+    """
+    key = (os.environ.get('WEREAD_API_KEY') or '').strip()
+    if not key:
+        raise RuntimeError('未设置环境变量 WEREAD_API_KEY，无法获取简介/点评')
+    payload = {'api_name': api_name}
+    payload.update(params)
+    payload['skill_version'] = SKILL_VERSION
+    req = urllib.request.Request(
+        GATEWAY_URL,
+        data=json.dumps(payload).encode('utf-8'),
+        method='POST',
+        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        d = json.loads(r.read().decode('utf-8'))
+    if d.get('errcode') not in (None, 0):
+        raise RuntimeError('网关返回 %s：%s' % (d.get('errcode'), d.get('errmsg')))
+    return d
+
+
+def fetch_book_extra(book_id):
+    """获取书籍简介、评分与「最受推荐的读后感」。
+
+    关于「获赞数第一」：网关不返回点赞数（点赞列表字段被裁剪），
+    但 /review/list 的默认排序（reviewListType=0/1）就是 App 内的「热门/推荐」顺序，
+    因此取其第一条，即全站最受认可的那篇读后感。
+    """
+    book_id = str(book_id).strip()
+    info = gateway_call('/book/info', bookId=book_id)
+    rating = info.get('newRating')
+    extra = {
+        'intro': (info.get('intro') or '').strip(),
+        'rating': round(rating / 10.0, 1) if isinstance(rating, (int, float)) else None,
+        'ratingCount': info.get('newRatingCount'),
+        'category': info.get('category') or '',
+        'publisher': info.get('publisher') or '',
+        'publishTime': (info.get('publishTime') or '')[:10],
+        'cover': info.get('cover') or '',
+        'deepLink': info.get('deepLink') or '',
+        'reviewCount': None,
+        'topReview': None,
+    }
+    try:
+        rl = gateway_call('/review/list', bookId=book_id, reviewListType=1, count=5)
+        extra['reviewCount'] = rl.get('reviewsCnt')
+        for item in (rl.get('reviews') or []):
+            rv = ((item.get('review') or {}).get('review')) or {}
+            content = (rv.get('content') or '').strip()
+            if not content:
+                continue
+            author = rv.get('author') or {}
+            extra['topReview'] = {
+                'author': author.get('name') or '',
+                'star': int(rv.get('star') or 0),
+                'content': content[:REVIEW_MAX_CHARS],
+                'truncated': len(content) > REVIEW_MAX_CHARS,
+                'createTime': int(rv.get('createTime') or 0),
+                'isFinish': int(rv.get('isFinish') or 0),
+                'isDeepV': int(author.get('isDeepV') or 0),
+                'chapterName': rv.get('chapterName') or '',
+            }
+            break
+    except Exception as e:
+        log('fetch_book_extra review error: %s' % e)
+    return extra
 
 
 def fetch_book_detail_info(info_id):
@@ -101,16 +186,25 @@ def fetch_book_detail_info(info_id):
     return book_id, title, author
 
 
-def fetch_via_anonymous(info_id):
-    """匿名从 weread.qq.com web 接口拉热门划线。
-    返回标准化结构：{bookId, items:[...], totalCount:, ...}
-    """
-    book_id, title, author = fetch_book_detail_info(info_id)
-    url = BESTBOOK_URL + '?bookId=' + book_id + '&hasLogin=0'
+def fetch_bestbookmarks(book_id, info_id, count):
+    """按指定条数拉一次热门划线原始回包。"""
+    url = (BESTBOOK_URL + '?bookId=' + book_id + '&hasLogin=0'
+           + '&count=' + str(int(count)))
     r = http_get(url, referer=BOOK_DETAIL_URL + info_id)
     body = r.read().decode('utf-8', 'ignore')
-    raw = json.loads(body)
-    bb = raw.get('bestBookMarks', {})
+    return json.loads(body).get('bestBookMarks', {})
+
+
+def fetch_via_anonymous(info_id):
+    """匿名从 weread.qq.com web 接口拉热门划线（前 FETCH_COUNT 条，按热度排序）。
+    返回标准化结构：{bookId, items:[...], totalCount:, ...}
+
+    注意：该接口不传 count 时默认只返回 10 条，这是之前「只能摘前 10 条」的原因；
+    且 maxIdx 实测无效（无论传多少都返回从第一条开始的前 N 条），
+    所以要拿更多只能靠加大 count（上限实测可到近千条，如三体全集 974 条）。
+    """
+    book_id, title, author = fetch_book_detail_info(info_id)
+    bb = fetch_bestbookmarks(book_id, info_id, FETCH_COUNT)
     items = bb.get('items') or []
     chapters = bb.get('chapters') or []
     chap_map = {c.get('chapterUid'): c.get('title', '') for c in chapters}
@@ -159,6 +253,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 deleted = data.get('deleted') or {}
 
                 # 1) 写 books.json（已是删减后的版本）
+                # 页面传来的书若缺少某些字段（简介/读后感/totalCount 等），
+                # 从现有 books.json 按 bookId 补齐，避免同步动作把已有数据抹掉。
+                old_books = {}
+                books_file = os.path.join(ROOT, 'data', 'books.json')
+                if os.path.exists(books_file):
+                    try:
+                        with open(books_file, encoding='utf-8') as f:
+                            for ob in (json.load(f).get('books') or []):
+                                if ob.get('bookId'):
+                                    old_books[str(ob['bookId'])] = ob
+                    except Exception:
+                        old_books = {}
+                for b in books:
+                    ob = old_books.get(str(b.get('bookId') or ''))
+                    if not ob:
+                        continue
+                    for k, v in ob.items():
+                        if k == 'highlights':
+                            continue
+                        if b.get(k) in (None, '', [], {}):
+                            b[k] = v
+
                 payload = {
                     'version': 1,
                     'updatedAt': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
@@ -212,6 +328,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json({'ok': True, 'title': title, 'author': author})
             except Exception as e:
                 self._send_json({'ok': False, 'errmsg': str(e)[:200]}, 500)
+            return
+
+        if self.path.startswith('/api/bookextra'):
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            book_id = (params.get('bookId') or [''])[0].strip()
+            if not book_id:
+                self._send_json({'ok': False, 'errmsg': 'bookId 必填'}, 400)
+                return
+            now = time.time()
+            hit = EXTRA_CACHE.get(book_id)
+            if hit and now - hit[0] < EXTRA_TTL:
+                body = {'ok': True, 'cached': True}
+                body.update(hit[1])
+                self._send_json(body)
+                return
+            try:
+                extra = fetch_book_extra(book_id)
+                EXTRA_CACHE[book_id] = (now, extra)
+                log('bookextra %s -> intro=%d字 review=%s' % (
+                    book_id, len(extra.get('intro') or ''),
+                    '有' if extra.get('topReview') else '无'))
+                body = {'ok': True}
+                body.update(extra)
+                self._send_json(body)
+            except Exception as e:
+                msg = str(e)[:300]
+                # 用 200 返回，前端好展示「需配置 Key」这类提示，而不是报网络错误
+                self._send_json({'ok': False, 'errmsg': msg,
+                                 'needKey': 'WEREAD_API_KEY' in msg})
             return
 
         if self.path.startswith('/api/bestbookmarks'):
